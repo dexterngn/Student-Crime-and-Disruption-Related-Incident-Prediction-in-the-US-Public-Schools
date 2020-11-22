@@ -1,0 +1,139 @@
+---
+title: ""
+author: ""
+date: ""
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
+```
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 12px;
+  }
+td {  /* Table  */
+  font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+  font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+
+code.r{ /* Code block */
+    font-size: 12px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 14px;
+}
+</style>
+
+```{r}
+library(dataQualityR)
+library(e1071)
+library(mice)
+library(corrplot)
+library(ggplot2)
+library(ggpubr)
+library(scales)
+library(caret)
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(gganimate)
+library(MASS)
+library(VIM)
+library(glmnet)
+```
+
+# Outline:
+
+
+# 1. Introduction
+
+# 2. Data Preparation
+
+## 2.1. Data collection
+
+## 2.2. Data cleaning
+
+- Data reading
+```{r}
+df<-read.csv("Data1.csv")
+dim(df)
+```
+
+- Data overview
+```{r}
+table(df$Arrests)
+```
+- Remove School.ID column
+```{r}
+df$School.ID<-NULL # Order column looks like meaningless
+```
+
+- having a data report for cat and num 
+```{r}
+num.file <- paste(getwd(), "/dqames_num.csv", sep= "")
+cat.file <- paste(getwd(), "/dqames_cat.csv", sep= "")
+checkDataQuality(data= df, out.file.num= num.file, out.file.cat= cat.file)
+```
+
+- Checking missing values
+```{r}
+library(VIM)
+aggr_plot <- aggr(df, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(df), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+```
+
+```{r}
+dim(df)
+```
+
+- remove columns with missing values
+```{r}
+df$LawEnforcementSchool <- NULL
+df$LawEnforcementActivities <- NULL
+df$LawEnforcementProblemParticipation<- NULL
+df$LawEnforcementPreventionParticipation <- NULL
+df$LawEnforcementStudentMentoring<- NULL
+df$LawEnforcementTeaching<- NULL
+df$LawEnforcementReporting<- NULL
+df$LawEnforcementDisciplinePolicies<- NULL
+df$LawEnforcementArrestPolicies<- NULL
+df$LawEnforcementReportingPolicies<- NULL
+```
+
+```{r}
+table(df$Arrests)
+```
+
+- Group school's policies
+```{r}
+df$SchoolSecurity <- rowSums(df[,c(1:8, 14, 16:20,22)])
+df$SchoolProceduresRules <- rowSums(df[,c(9:13, 15, 21, 23:25)])
+df$SchoolPreventionProgram <- rowSums(df[,c(25:41)])
+df$SchoolMentalHealthServices <- rowSums(df[,c(42:43)])
+df$SchoolTrainingProgram <- rowSums(df[,c(44:53)])
+```
+
+- remove a group of dummies
+```{r}
+df[,2:53] <- NULL
+dim(df)
+str(df)
+summary(df)
+```
+
+- Write out new data
+```{r}
+write.csv(df,"data2.csv", row.names = FALSE)
+```

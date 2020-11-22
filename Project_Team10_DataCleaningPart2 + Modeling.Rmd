@@ -1,0 +1,530 @@
+---
+title: "Project_Team_10_DataCleaningPart2 + Modeling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
+```
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 12px;
+  }
+td {  /* Table  */
+  font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+  font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+
+code.r{ /* Code block */
+    font-size: 12px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 14px;
+}
+</style>
+
+
+```{r}
+library(dataQualityR) #for data cleaning
+library(e1071) #SVM Training & Testing Models
+library(mice) #deal with missing data
+library(corrplot) #plot for correlation matrix
+library(ggplot2) #visualization and plots
+library(ggpubr) #customizing ggplot2
+library(scales) #graphical scales map data to aesthetics
+library(caret) #deal with Classification And REgression Training CART
+library(dplyr) #data manipulation: filter and arrange
+library(tidyverse) #data manipulation
+library(sf) #plot mapping
+library(gganimate) #static visualization
+library(MASS) #deal with data set
+library(VIM) #tools for the visualization of missing or imputed values
+library(glmnet) #Lasso and Elastic-Net Regularization
+```
+
+## Additional Cleaning for data2
+- Read new data
+```{r}
+df2 <- read.csv("data2.csv")
+```
+
+- having a data report for cat and num 
+```{r}
+num.file <- paste(getwd(), "/dqames_num2.csv", sep= "")
+cat.file <- paste(getwd(), "/dqames_cat2.csv", sep= "")
+checkDataQuality(data= df2, out.file.num= num.file, out.file.cat= cat.file)
+```
+
+- change subclass from num to cat 
+```{r}
+df2[,5:13] <- lapply(df2[,5:13], as.factor)
+df2[,20:21] <- lapply(df2[,20:21], as.factor)
+df2[,40:43] <- lapply(df2[,40:43], as.factor)
+```
+
+```{r}
+df2[,23:24]<-NULL # Order column looks like meaningless
+df2[,24:35]<-NULL # Order column looks like meaningless
+```
+
+```{r}
+str(df2)
+```
+
+# 3. Exploratory Data Analysis - EDA
+
+```{r}
+h1 <- hist(df2$TotalIncidents)
+h2 <- hist(log(df2$TotalIncidents))
+
+q1 <- ggplot(df2, aes(sample=TotalIncidents)) +
+  stat_qq(color="dodgerblue4") + 
+  stat_qq_line(color="red") +
+  scale_y_continuous(labels=function(y){y/10^6}) +
+  labs(title="QQ Plot for TotalIncidents", y="Ordered Values") +
+  theme(plot.title=element_text(hjust=0.5))
+q1
+
+q2 <- ggplot(df2, aes(sample=log(TotalIncidents))) +
+  stat_qq(color="dodgerblue4") + 
+  stat_qq_line(color="red") +
+  scale_y_continuous(labels=function(y){y/10^6}) +
+  labs(title="QQ Plot for Log TotalIncidents", y="Ordered Values") +
+  theme(plot.title=element_text(hjust=0.5))
+q2
+```
+
+## 3.1. 1D
+```{r}
+h1 <- ggplot(df2, aes(SchoolSecurity))+ 
+  geom_histogram() + 
+  labs(title = "Histogram of SchoolSecurity") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  geom_vline(aes(xintercept=mean(SchoolSecurity)), color="blue", linetype="dashed", size=1)
+h1
+
+h2 <- ggplot(df2, aes(SchoolProceduresRules))+ 
+  geom_histogram() + 
+  labs(title = "Histogram of SchoolProceduresRules") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  geom_vline(aes(xintercept=mean(SchoolProceduresRules)), color="blue", linetype="dashed", size=1)
+h2
+
+h3 <- ggplot(df2, aes(SchoolPreventionProgram))+ 
+  geom_histogram() + 
+  labs(title = "Histogram of SchoolPreventionProgram") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  geom_vline(aes(xintercept=mean(SchoolPreventionProgram)), color="blue", linetype="dashed", size=1)
+h3
+
+h4 <- ggplot(df2, aes(SchoolTrainingProgram))+ 
+  geom_histogram() + 
+  labs(title = "SchoolTrainingProgram") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  geom_vline(aes(xintercept=mean(SchoolTrainingProgram)), color="blue", linetype="dashed", size=1)
+h4
+
+h5 <- ggplot(df2, aes(SchoolMentalHealthServices))+ 
+  geom_histogram() + 
+  labs(title = "Histogram of SchoolMentalHealthServices") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  geom_vline(aes(xintercept=mean(SchoolMentalHealthServices)), color="blue", linetype="dashed", size=1)
+h5
+```
+
+## 3.2. 2D
+
+```{r}
+s1 <- ggplot(df2, aes(x=SchoolSecurity, y=log(TotalIncidents+1))) +
+  geom_point(color="dodgerblue4",size=0.7) + 
+  labs(title="SchoolSecurity vs. y=log(TotalIncidents+1)") +
+  geom_smooth(formula=y~x,method=lm, color="red") +
+  theme(plot.title=element_text(hjust=0.5))
+s1
+
+s2 <- ggplot(df2, aes(x=SchoolProceduresRules,y=log(TotalIncidents+1))) +
+  geom_point(color="dodgerblue4",size=0.7) + 
+  labs(title="SchoolProceduresRules vs. y=log(TotalIncidents+1)") +
+  geom_smooth(formula=y~x,method=lm, color="red") +
+  theme(plot.title=element_text(hjust=0.5))
+s2
+
+s3 <- ggplot(df2, aes(x=SchoolPreventionProgram, y=log(TotalIncidents+1))) +
+  geom_point(color="dodgerblue4",size=0.7) + 
+  labs(title="SchoolPreventionProgram vs. y=log(TotalIncidents+1)") +
+  geom_smooth(formula=y~x,method=lm, color="red") +
+  theme(plot.title=element_text(hjust=0.5))
+s3
+
+s4 <- ggplot(df2, aes(x=SchoolTrainingProgram, y=log(TotalIncidents+1))) +
+  geom_point(color="dodgerblue4",size=0.7) + 
+  labs(title="SchoolTrainingProgram vs. y=log(TotalIncidents+1)") +
+  geom_smooth(formula=y~x,method=lm, color="red") +
+  theme(plot.title=element_text(hjust=0.5))
+s4
+
+ggarrange(s1, s2, s3, s4, ncol=2, nrow=2)
+```
+
+```{r}
+g1 <- ggplot(df2, aes(factor(SchoolSecurity), log(TotalIncidents+1), fill=factor(SchoolSecurity))) + 
+  geom_boxplot() +
+  labs(x = "SchoolSecurity", y = "log(TotalIncidents+1)", title = "Boxplot of log(TotalIncidents+1) vs. SchoolSecurity") + 
+  theme(legend.position = 'none', plot.title = element_text(size = 9, hjust=0.5))
+g1
+
+g2 <- ggplot(df2, aes(factor(SchoolProceduresRules), log(TotalIncidents+1), fill=factor(SchoolProceduresRules))) + 
+  geom_boxplot() +
+  labs(x = "SchoolProceduresRules", y = "log(TotalIncidents+1)", title = "Boxplot of log(TotalIncidents+1) vs. SchoolProceduresRules") + 
+  theme(legend.position = 'none', plot.title = element_text(size = 9, hjust=0.5))
+g2
+
+g3 <- ggplot(df2, aes(factor(SchoolPreventionProgram), log(TotalIncidents+1), fill=factor(SchoolPreventionProgram))) + 
+  geom_boxplot() +
+  labs(x = "SchoolPreventionProgram", y = "log(TotalIncidents+1)", title = "Boxplot of log(TotalIncidents+1) vs. SchoolPreventionProgram") + 
+  theme(legend.position = 'none', plot.title = element_text(size = 9, hjust=0.5))
+g3
+
+g4 <- ggplot(df2, aes(factor(SchoolTrainingProgram), log(TotalIncidents+1), fill=factor(SchoolTrainingProgram))) + 
+  geom_boxplot() +
+  labs(x = "SchoolTrainingProgram", y = "TotalIncidents", title = "Boxplot of log(TotalIncidents+1) vs. SchoolTrainingProgram") + 
+  theme(legend.position = 'none', plot.title = element_text(size = 9, hjust=0.5))
+g4
+
+ggarrange(g1, g2, g3, g4, ncol=2, nrow=2)
+```
+
+## 4. Data Trasformation
+## Convert to dummies to be used in next steps
+
+- Create a new dataframe
+```{r}
+df3<-df2
+```
+
+- Convert categorical variables to dummies
+```{r}
+for(level in unique(df2$StudentAreaCrime)){df3[paste("RacialTensions", level, sep = "_")] <- ifelse(df3$RacialTensions == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("StudentBullying", level, sep = "_")] <- ifelse(df3$StudentBullying == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("StudentSexualHarassment", level, sep = "_")] <- ifelse(df3$StudentSexualHarassment == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("VerbalAbuse", level, sep = "_")] <- ifelse(df3$VerbalAbuse == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("SexualOrientationHarassment", level, sep = "_")] <- ifelse(df3$SexualOrientationHarassment == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("WidespreadDisorder", level, sep = "_")] <- ifelse(df3$WidespreadDisorder == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("GenderIdentityHarassment", level, sep = "_")] <- ifelse(df3$GenderIdentityHarassment == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("ActsofDisrespect", level, sep = "_")] <- ifelse(df3$ActsofDisrespect == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("GangActivities", level, sep = "_")] <- ifelse(df3$GangActivities == level, 1, 0)}
+
+for(level in unique(df2$StudentAreaCrime)){df3[paste("StudentAreaCrime", level, sep = "_")] <- ifelse(df3$StudentAreaCrime == level, 1, 0)}
+
+for(level in unique(df2$SchoolAreaCrime)){df3[paste("SchoolAreaCrime", level, sep = "_")] <- ifelse(df3$SchoolAreaCrime == level, 1, 0)}
+
+for(level in unique(df3$Urbanicity)){df3[paste("Urbanicity", level, sep = "_")] <- ifelse(df3$Urbanicity == level, 1, 0)}
+
+for(level in unique(df3$GradeLevel)){df3[paste("GradeLevel", level, sep = "_")] <- ifelse(df3$GradeLevel == level, 1, 0)}
+
+for(level in unique(df3$SchoolSize)){df3[paste("SchoolSize", level, sep = "_")] <- ifelse(df3$SchoolSize == level, 1, 0)}
+
+for(level in unique(df3$PctWhiteStudents)){df3[paste("PctWhiteStudents", level, sep = "_")] <- ifelse(df3$PctWhiteStudents == level, 1, 0)}
+```
+
+- Remove categorical columns
+```{r}
+df3[,5:13]<-NULL # Order column looks like meaningless
+df3[,11:12]<-NULL # Order column looks like meaningless
+df3[,15:18]<-NULL # Order column looks like meaningless
+```
+
+- Remove Arrest columns
+```{r}
+df3[,3]<-NULL # Order column looks like meaningless
+```
+
+```{r}
+str(df3)
+```
+
+## 4. Correlation analysis
+- Build correlation and order by decreasing
+```{r}
+set.seed(123)
+library(dplyr)
+library(tidyr)
+
+cor(df3) %>%
+  as.data.frame() %>%
+  mutate(var1 = rownames(.)) %>%
+  gather(var2, value, -var1) %>%
+  arrange(desc(value)) %>%
+  group_by(value) %>%
+  filter(row_number()==1)
+```
+
+- Remove GenderIdentityHarassment_1 column as a result of collinearity
+```{r}
+df3[,45]<-NULL # Order column looks like meaningless
+str(df3)
+```
+
+- Build correlation atts with dependent variable
+```{r}
+correlations <- cor(df3)
+outcome_cor <- correlations[,"TotalIncidents"]
+summary(outcome_cor)
+```
+
+- correlation atts - Keep top 10 variables with the highest correlation
+```{r}
+# correlation atts - price - in order
+absoutcome_cor <- abs(outcome_cor)
+head(absoutcome_cor[order(absoutcome_cor, decreasing = TRUE)],11)
+```
+
+- correlation matrix
+```{r}
+top10 = c("TotalIncidents", "SchoolSize_4", "GangActivities_4", "GangActivities_3", "GradeLevel_3", "GradeLevel_1", "StudentAreaCrime_3", "SchoolAreaCrime_3", "GenderIdentityHarassment_4", "PctWhiteStudents_4", "VerbalAbuse_1")
+dftop = df3[,top10]
+cortop <- cor(dftop)
+corrplot(cortop, method = "color", addCoef.col = "black",number.cex = .5,
+         tl.col = "black", tl.srt = 90, diag = FALSE, tl.cex =0.9)
+```
+
+## 5. Modeling
+## 5.1. Model 1 with top 10 highest correlation with TotalIncidents
+```{r}
+lm1 <- lm(log(TotalIncidents+1) ~ SchoolSize_4 + GangActivities_4 + GangActivities_3 + GradeLevel_3 + GradeLevel_1 + StudentAreaCrime_3 + SchoolAreaCrime_3 + GenderIdentityHarassment_4 + PctWhiteStudents_4 + VerbalAbuse_1, data = df3)
+summary(lm1)
+```
+
+Using K-Fold CV
+```{r}
+# Define training control
+set.seed(123) 
+train.control <- trainControl(method = "cv", number = 10) #cv Cross-Validation
+# Train the model
+model1 <- train(log(TotalIncidents+1) ~ SchoolSize_4 + GangActivities_4 + GangActivities_3 + GradeLevel_3 + GradeLevel_1 + StudentAreaCrime_3 + SchoolAreaCrime_3 + GenderIdentityHarassment_4 + PctWhiteStudents_4 + VerbalAbuse_1, data = df3, method = "lm", trControl = train.control)
+# Summarize the results
+summary(model1)
+print(model1)
+```
+
+```{r}
+ggqqplot(data=data.frame(residuals=residuals(model1)), 
+         x="residuals", color="dodgerblue4", ggtheme = theme_pubclean())
+
+iworst1 <- which.max(abs(residuals(model1)))
+paste("predicted Total Incidents: ", round(exp(fitted(model1)[iworst]),3), ".", sep="")
+df3[iworst1,]
+```
+
+## 5.2. LASSO
+```{r}
+library(glmnet)
+x <- model.matrix(TotalIncidents~., df3)[,-1]
+y <- df3$TotalIncidents
+mod <- cv.glmnet(as.matrix(x), y, alpha=1)
+```
+
+To see the coefficients with the minimum cross-validation error
+To see the coefficients with the "largest value of lambda such that error is within 1 standard error of the minimum:
+```{r}
+as.matrix(coef(mod, mod$lambda.min))
+as.matrix(coef(mod, mod$lambda.1se))
+```
+
+You can also select any other value of lambda that you want. Coefficients that are 0 have been dropped out of the model
+```{r}
+CF <- as.matrix(coef(mod, mod$lambda.1se))
+CF[CF!=0,]
+```
+
+
+```{r}
+#Predict the lambda's value
+pred.Lasso = predict(mod, test_matrix, type="response", s="lambda.1se")
+
+#plot of coef
+plot(mod$glmnet.fit,xvar ="lambda", label = T)
+abline(v=log(c(mod$lambda.min,mod$lambda.1se)),lty=2)
+```
+
+
+Using Model 2 using above independent variables
+```{r}
+lm2 <- lm(log(TotalIncidents+1) ~ GradeLevel_1 + StudentAreaCrime_3 + SchoolAreaCrime_3 + SchoolSize_4  + VerbalAbuse_1 +  GangActivities_3 + GangActivities_4, data=df3)
+summary(lm2)
+```
+
+Using K-Fold CV
+```{r}
+# Define training control
+set.seed(123) 
+train.control <- trainControl(method = "cv", number = 10) #cv Cross-Validation
+# Train the model
+model2<- train(log(TotalIncidents+1) ~ GradeLevel_1 + StudentAreaCrime_3 + SchoolAreaCrime_3 + SchoolSize_4 + VerbalAbuse_1 +  GangActivities_3 + GangActivities_4, data = df3, method = "lm",
+               trControl = train.control)
+# Summarize the results
+summary(model2)
+print(model2)
+```
+
+```{r}
+ggqqplot(data=data.frame(residuals=residuals(model2)), 
+         x="residuals", color="dodgerblue4", ggtheme = theme_pubclean())
+
+iworst2 <- which.max(abs(residuals(model2)))
+paste("predicted Total Incidents: ", round(exp(fitted(model2)[iworst]),3), ".", sep="")
+df3[iworst2,]
+```
+
+## 5.3. Elastic Net - Model 3
+```{r}
+y <- df3$TotalIncidents
+x <- model.matrix(TotalIncidents~., df3)[,-1]
+lambdas <- 10^seq(3, -2, by = -.1)
+
+fit <- glmnet(x, y, alpha = 0.5, lambda = lambdas)
+summary(fit)
+cv_fit <- cv.glmnet(x, y, alpha = 0.5, lambda = lambdas)
+plot(cv_fit)
+```
+
+```{r}
+dim(x)
+```
+
+```{r}
+cv_fit$lambda.min
+```
+
+```{r}
+#Show Crucial Parameter
+CF <- as.matrix(coef(cv_fit, cv_fit$lambda.1se))
+CF[CF!=0,]
+
+#Predict the lambda's value
+pred.elastic = predict(cv_fit, test_matrix, type="response", s="lambda.1se")
+
+#plot of coef
+plot(cv_fit$glmnet.fit,xvar ="lambda", label = T)
+abline(v=log(c(cv_fit$lambda.min,cv_fit$lambda.1se)),lty=2)
+```
+
+```{r}
+lm3 <- lm(log(TotalIncidents+1) ~ StudentBullying_2   +   VerbalAbuse_2    +  VerbalAbuse_1  +  GangActivities_3 +  GangActivities_4 + StudentAreaCrime_3  + SchoolAreaCrime_3 + GradeLevel_1    +   SchoolSize_4 + PctWhiteStudents_4, data=df3 )
+ summary(lm4)
+```
+
+Using K-Fold CV
+```{r}
+# Define training control
+set.seed(123) 
+train.control <- trainControl(method = "cv", number = 10) #cv Cross-Validation
+# Train the model
+model3 <- train(log(TotalIncidents+1) ~ StudentBullying_2   +   VerbalAbuse_2    +  VerbalAbuse_1  +  GangActivities_3 +  GangActivities_4 + StudentAreaCrime_3  + SchoolAreaCrime_3 + GradeLevel_1    +   SchoolSize_4 + PctWhiteStudents_4, data = df3, method = "lm",
+               trControl = train.control)
+# Summarize the results
+summary(model3)
+print(model3)
+```
+
+```{r}
+ggqqplot(data=data.frame(residuals=residuals(model3)), 
+         x="residuals", color="dodgerblue4", ggtheme = theme_pubclean())
+
+iworst3 <- which.max(abs(residuals(model3)))
+paste("predicted Total Incidents: ", round(exp(fitted(model3)[iworst]),3), ".", sep="")
+df3[iworst3,]
+```
+
+## 5.4 Random Forest Model 4
+
+```{r}
+library(randomForest)
+library(mlbench)
+library(caret) # use createDataPartition() function 
+set.seed(95014)
+
+# partition 
+#Create Evaluation Sets
+set.seed(123)
+n = nrow(df3)
+trainIndex = sample(1:n, size = round(0.7*n), replace=FALSE)
+```
+
+```{r}
+#Creates training and test set from observations 
+training = df3[trainIndex,]
+testing = df3[-trainIndex,]
+
+model4 <- randomForest(log(TotalIncidents+1) ~ ., training, mtry = 3, 
+                         importance = TRUE, na.action = na.omit)
+print(model4)
+summary(model4)
+
+#Plot the error vs the number of trees graph 
+plot(model4) 
+```
+
+```{r}
+varImp(model4)
+varImpPlot(model4,type=2,main = "Model 4", n.var=min(10, nrow(model3$importance)))
+```
+
+```{r}
+# obtain MSE as of last element in fit$mse
+# which should match the output from printout
+model4$mse[length(model4$mse)]
+# take square root to calculate RMSE for the model
+sqrt(model4$mse[length(model3$mse)])
+```
+
+```{r}
+# now illustrate how to calculate RMSE on test data vs. training data
+predValues <- predict(model4,testing)
+
+# we can calculate it directly 
+library("ie2misc")
+sqrt(mean((log(testing$TotalIncidents+1) -predValues)^2)) #RMSE
+mean(abs(log(testing$TotalIncidents+1) -predValues)) #MAE
+```
+
+## 6. Evaluation
+
+Evaluation dataframe
+```{r}
+Model <- c("Model 1", "Model 2", "Model 3", "Model 4")
+R_squared <- c(0.4201, 0.4105, 0.4262, 0.5057)
+RMSE <- c(1.1422, 1.1519, 1.1364, 1.0160)
+MAE <- c(0.8903, 0.9021, 0.8927, 0.7879)
+ml <- data.frame(Model, R_squared, RMSE, MAE)
+```
+
+Plot
+```{r}
+library(gridExtra)
+p1 <- ggplot(ml, aes(Model, RMSE)) + geom_point(aes(colour = factor(Model), size = 4)) + labs(title="RMSE") + theme(plot.title=element_text(hjust=0.5), axis.title.y = element_blank(),axis.title.x = element_blank(), legend.position="none")
+p2 <- ggplot(ml, aes(Model, R_squared)) + geom_point(aes(colour = factor(Model), size = 4)) + labs(title="R-Squared") + theme(plot.title=element_text(hjust=0.5), axis.title.y = element_blank(),axis.title.x = element_blank(), legend.position="none")
+p3 <- ggplot(ml, aes(Model, MAE)) + geom_point(aes(colour = factor(Model), size = 4)) + labs(title="MAE") + theme(plot.title=element_text(hjust=0.5), axis.title.y = element_blank(),axis.title.x = element_blank(), legend.position="none")
+grid.arrange(p2,p1,p3, ncol=3)
+```
