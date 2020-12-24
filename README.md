@@ -35,6 +35,4 @@ or
 https://towardsdatascience.com/student-crime-and-disruption-related-incident-prediction-in-the-us-public-schools-64d81ed129b1?source=post_stats_page-------------------------------------
 
 8. Others
-- Explanation for data set: 
-+ DataCodebook
-+ FullVariableList
+Explanation for data set: DataCodebook & FullVariableList
